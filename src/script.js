@@ -16,7 +16,7 @@ scene.add(sun);
 scene.add(new THREE.GridHelper(400, 400, 0x555555, 0x333333));
 var floorMesh = new THREE.Mesh(
   new THREE.PlaneGeometry(400, 400),
-  
+  new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1 })
 );
 floorMesh.rotation.x = -Math.PI / 2;
 floorMesh.position.y = -0.02;
@@ -163,6 +163,9 @@ window.addEventListener('keydown', function(e) {
   keys[e.key.toLowerCase()] = true;
   if (e.key === ' ') e.preventDefault();
   if (e.key.toLowerCase() === 'r') resetCar();
+  if (e.key.toLowerCase() === 'c') { camMode = (camMode % 6) + 1; updateCamLabel(); }
+  var n = parseInt(e.key);
+  if (n >= 1 && n <= 6) { camMode = n; updateCamLabel(); }
 });
 window.addEventListener('keyup', function(e) { keys[e.key.toLowerCase()] = false; });
  
@@ -322,37 +325,66 @@ function updateCarMovement(dt) {
   checkWallCollision();
   updateSpeedometer(Math.abs(velocity));
 }
- 
-var sph = { th: 0.7, ph: 0.9, r: 14 };
- 
-function updateCam() {
-  sph.ph = Math.max(0.1, Math.min(1.4, sph.ph));
-  sph.r  = Math.max(4, Math.min(80, sph.r));
-  camera.position.set(
-    car.position.x + sph.r * Math.sin(sph.ph) * Math.sin(sph.th),
-    car.position.y + sph.r * Math.cos(sph.ph),
-    car.position.z + sph.r * Math.sin(sph.ph) * Math.cos(sph.th)
-  );
-  camera.lookAt(car.position.x, car.position.y + 0.5, car.position.z);
+
+var camMode = 1;
+var CAM_LABELS = [
+  '',
+  'Chase',
+  'Top-down',
+  'Stanga',
+  'Dreapta',
+  'Spate',
+  'Cockpit'
+];
+
+function updateCamLabel() {
+  var el = document.getElementById('cam-label');
+  if (el) el.textContent = CAM_LABELS[camMode];
 }
- 
-var dragging = false, px = 0, py = 0;
-renderer.domElement.addEventListener('mousedown', function(e) { dragging = true; px = e.clientX; py = e.clientY; });
-window.addEventListener('mouseup', function() { dragging = false; });
-window.addEventListener('mousemove', function(e) {
-  if (!dragging) return;
-  sph.th -= (e.clientX - px) * 0.007;
-  sph.ph -= (e.clientY - py) * 0.007;
-  px = e.clientX; py = e.clientY;
-  updateCam();
-});
-renderer.domElement.addEventListener('wheel', function(e) { sph.r += e.deltaY * 0.02; updateCam(); }, { passive: true });
+
+function updateCam() {
+  var cx = car.position.x;
+  var cy = car.position.y;
+  var cz = car.position.z;
+  var cos = Math.cos(carAngle);
+  var sin = Math.sin(carAngle);
+
+  if (camMode === 1) {
+    camera.position.set(
+      cx - cos * 14,
+      cy + 7,
+      cz + sin * 14
+    );
+    camera.lookAt(cx, cy + 0.5, cz);
+  } else if (camMode === 2) {
+    camera.position.set(cx, cy + 22, cz);
+    camera.lookAt(cx, cy, cz);
+  } else if (camMode === 3) {
+    var lx = Math.sin(carAngle);
+    var lz = Math.cos(carAngle);
+    camera.position.set(cx + lx * 1.2 - cos * 2, cy + 0.8, cz + lz * 1.2 + sin * 2);
+    camera.lookAt(cx + cos * 10 + lx * 1.2, cy + 0.8, cz - sin * 10 + lz * 1.2);
+  } else if (camMode === 4) {
+    var rx = -Math.sin(carAngle);
+    var rz = -Math.cos(carAngle);
+    camera.position.set(cx + rx * 1.2 - cos * 2, cy + 0.8, cz + rz * 1.2 + sin * 2);
+    camera.lookAt(cx + cos * 10 + rx * 1.2, cy + 0.8, cz - sin * 10 + rz * 1.2);
+  } else if (camMode === 5) {
+    camera.position.set(cx - cos * 14, cy + 3, cz + sin * 14);
+    camera.lookAt(cx, cy + 0.5, cz);
+  } else if (camMode === 6) {
+    camera.position.set(cx + cos * 0.6, cy + 0.72, cz - sin * 0.6);
+    camera.lookAt(cx + cos * 10, cy + 0.65, cz - sin * 10);
+  }
+}
  
 var spdDiv = document.getElementById('speedometer');
 function updateSpeedometer(speed) {
   spdDiv.textContent = (isNaN(speed) ? 0 : Math.round(speed)) + ' km/h';
 }
  
+updateCamLabel();
+
 function animate(timestamp) {
   requestAnimationFrame(animate);
   var dt = 0;
